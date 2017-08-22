@@ -17,13 +17,22 @@ var idWerewolf;
 var idSheriff;
 var idDoctor;
 
-var alreadyPressPlay=0;
+var alreadyPressPlay=false;
 var sTime;
 var counter;
 
-var countDown = 5;
-var timeIsCountingDown=true;
-var gameOver=false;
+var countDown5Secs = 5;
+var gameStart=false;
+
+var countDown30Secs = 30;
+var gameCont= false;
+
+var alreadyKill=false;
+var alreadyInv=false;
+var alreadyHeal=false;
+
+var deadPerson=-1;
+
 
 client.on('ready', () => {
   client.user.setGame('Let\'s play werewolf!');
@@ -31,9 +40,9 @@ client.on('ready', () => {
 });
 
 client.on('message', msg => {
+  
   var content = msg.content //contains all the text Ex: !addrole Member
   var parts = content.split(" "); //splits everything up on spaces so you'll have an array of two strings
-  var roleName = parts[1]; //gets the second element of the array (since array indexing starts at 0)
   
   if (msg.isMentioned(client.user)) {
     msg.channel.send('Welcome to a game of werewolf!\nCommands:\n`w!rules` `w!join` `w!play`');
@@ -52,11 +61,58 @@ client.on('message', msg => {
 		msg.channel.send('We don\'t have enough people to play the game.');
 	}
   }
-  if (parts[0] === config.prefix  + '!' + 'kill') {
- 	client.channels.get('341523915849465856').send(parts[1]+' has been killed')
+
+  if(parts[0] === config.prefix  + '!' + 'kill'){
+  	if (msg.author.toString() === werewolf){
+  		if(alreadyKill==false){
+			noteDead(msg, parts[1]);
+			
+  			client.channels.get('341523915849465856').send('Sheriff, please DM me who you want investigate.');
+  			client.fetchUser(idSheriff).then(user => {user.send("The people alive are:\n"+ list.printDMList() +"\nTo investigate, use w!inv number")});
+  			
+  		}else{
+  			msg.channel.send('You\'ve already killed once.');
+  		}
+  	}else{
+		msg.channel.send('You are not authorized with this command.');
+  	}
+  }
+  if(parts[0] === config.prefix  + '!' + 'inv'){
+  	if (msg.author.toString() === sheriff){
+  		if(alreadyInv==false){
+  			investigate(msg, parts[1]);
+  			client.channels.get('341523915849465856').send('Doctor, please DM me who you want to heal.');
+  			client.fetchUser(idDoctor).then(user => {user.send("The people alive are: \n"+ list.printDMList() +"\nTo heal, use w!heal number")});
+  		}else{
+  			msg.channel.send('You\'ve already investigated once.');
+  		}  		
+  	}else{
+		msg.channel.send('You are not authorized with this command.');
+  	}
+  }
+  if(parts[0] === config.prefix  + '!' + 'heal'){
+  	if (msg.author.toString() === doctor){
+  		if(alreadyHeal==false){
+  			
+  			heal(msg, parts[1]);
+
+  			client.channels.get('341523915849465856').send('Alive:\n'+ list.printList() +'\nWho is the werewolf? Please vote with w!vote username');
+  			
+			while (!gameCont){
+				sTime = new Date().getTime();
+		    	counter = setInterval(function(){wait30Secs(msg)}, 500);
+				gameCont=true;
+			}
+  		}else{
+  			msg.channel.send('You\'ve already healed once.');
+  		}  		
+  	}else{
+		msg.channel.send('You are not authorized with this command.');
+  	}
   }
 
 });
+
 
 function explainRules(msg){
     msg.channel.send('Welcome to a game of werewolf. I am your host, werewolf-bot. Please call me "aniki".\n__**How to play the game:**__\nAmongst the villagers, there is one **Werewolf**, one **Sheriff**, one **Doctor**. The **Werewolf**, **Sheriff** and **Doctor** will be DMed.\nDuring the night, I will tell everyone to sleep and close their eyes. Then the **Werewolf** comes out and kills one person.\nThen the **Sheriff** will wake up and DM the host who he wants to investigate (and kill if he wants to within the same round).\nThen the **Doctor** will wake up and DM the host who she wants to protect.\nDuring the day, I will tell everyone to wake up, and announce who has been killed.\nThe villagers (including the dead) will vote and decide who they think is the werewolf. \nThe suspect with the most votes will be killed by the villagers.\nThe objective of the game for the villagers is to identify the werewolf. For the werewolf, it is to kill all the villagers.\nThis will keep repeating till the villagers kill the werewolf, or the werewolf kills all the villagers.\nP. S. If the **Sheriff** and **Doctor** are dead, they cannot perform their jobs.﻿');
@@ -74,7 +130,7 @@ function join(msg){
 	else{
 		list.insert(msg.author.toString());
 	}
-	msg.channel.send('Players: ' + list.printList());
+	client.channels.get('341523915849465856').send('Players: ' + list.printList());
 
 }
 
@@ -95,8 +151,7 @@ function assignRoles(){
 	console.log( werewolf +` is the werewolf!`);
 	let strWerewolf = werewolf; 
 	idWerewolf = strWerewolf.replace(/[<@!>]/g, '');
-	client.fetchUser(idWerewolf).then(user => {user.send("You are the werewolf")})
-	
+	client.fetchUser(idWerewolf).then(user => {user.send("You are the werewolf")});
 	
 	y = Math.floor(Math.random() * list.getSize()) ;
 	
@@ -108,8 +163,7 @@ function assignRoles(){
 		console.log( sheriff +` is the sheriff!`);
 		let strSheriff = sheriff; 
 		idSheriff = strSheriff.replace(/[<@!>]/g, '');
-		client.fetchUser(idSheriff).then(user => {user.send("You are the sheriff")})
-
+		client.fetchUser(idSheriff).then(user => {user.send("You are the sheriff")});
 	}
 
 	z = Math.floor(Math.random() * list.getSize()) ;
@@ -122,43 +176,90 @@ function assignRoles(){
 		console.log( doctor +` is the doctor!`);
 		let strDoctor= doctor; //Just assuming some random tag.
 		idDoctor = strDoctor.replace(/[<@!>]/g, '');
-		client.fetchUser(idDoctor).then(user => {user.send("You are the doctor")})
-
+		client.fetchUser(idDoctor).then(user => {user.send("You are the doctor")});
 	}
 }
 
 function play(msg){
-	if (alreadyPressPlay==0){
-		alreadyPressPlay=1;
-		msg.channel.send('Night falls, everyone please go to sleep.');
+	if (alreadyPressPlay==false){
+		alreadyPressPlay=true;
+		client.channels.get('341523915849465856').send('Night falls, everyone please go to sleep.');
 
 		assignRoles();
 		
-		while (!gameOver){
+		while (!gameStart){
 			sTime = new Date().getTime();
-		    counter = setInterval(function(){UpdateTime(msg)}, 500);
+		    counter = setInterval(function(){wait5Secs(msg)}, 500);
 
 
-			gameOver=true;
+			gameStart=true;
 		}
 
 	}else{
-		msg.channel.send('Game already started');
+		client.channels.get('341523915849465856').send('Game already started');
 	}
-	
 }	
 
-function UpdateTime(msg) {
+async function wait5Secs(msg) {
  	var cTime = new Date().getTime();
     var diff = cTime - sTime;
-    var seconds = countDown - Math.floor(diff / 1000);
+    var seconds = countDown5Secs - Math.floor(diff / 1000);
     console.log(seconds);
     if(seconds<0){
     	clearInterval(counter);
-    	msg.channel.send('And the werewolf is awake!\nWerewolf, please DM me who you want to kill.');
-			
+    	client.channels.get('341523915849465856').send('And the werewolf is awake!\nWerewolf, please DM me who you want to kill.');
+		
+		client.fetchUser(idWerewolf).then(user => {user.send("The people alive are: \n" + list.printDMList() + "\nTo kill, use w!kill number, ie. w!kill 0")});	
+ 	}
+}
+function wait30Secs(msg) {
+ 	var cTime = new Date().getTime();
+    var diff = cTime - sTime;
+    var seconds = countDown30Secs - Math.floor(diff / 1000);
+    console.log(seconds);
+    if(seconds<0){
+    	clearInterval(counter);
+    	client.channels.get('341523915849465856').send('Time is up! \nDuring the day, the villagers killed _. \nNight falls...');
+		
     }
 }
+function noteDead(msg, dead){
+	if (dead<list.getSize()){
+		deadPerson= dead;
+		alreadyKill=true;
+		console.log("killed " + list.findAt(deadPerson).getData());
+	}else{
+		msg.channel.send("Unvalid number! Please w!kill number again.");
+	}
+}
+function investigate(msg, inv){
+	if (inv<list.getSize()){
+		if(list.findAt(inv).getData()===werewolf){
+			msg.channel.send(list.findAt(inv).getData()+" is the werewolf!");
+		}else{
+			msg.channel.send(list.findAt(inv).getData()+" is not the werewolf. Better luck next time!");
+		}
+		alreadyInv= true;
+		console.log("investigated " + list.findAt(inv).getData());
+	}else{
+		msg.channel.send("Unvalid number! Please w!kill number again.");
+	}
+}
+function heal(msg, heal){
+	if (heal<list.getSize()){
+		if(deadPerson==heal){
+			client.channels.get('341523915849465856').send('No one was found dead that night! Good job, Doc!');	
+			deadPerson=-1;
+		}else{
+			client.channels.get('341523915849465856').send('It’s daytime, wakey wakey! '+ list.findAt(deadPerson).getData() +' has been found dead!');
+  			list.removeAt(deadPerson);	
+		}
 
+		alreadyHeal=true;
+		console.log("healed" + list.findAt(heal).getData());
+	}else{
+		msg.channel.send("Unvalid number! Please w!kill number again.");
+	}
+}
 
 client.login(config.token);
