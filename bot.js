@@ -4,7 +4,11 @@ const config = require("./config.json");
 const fs = require("fs");
 var LinkedList = require('singly-linked-list');
 var list = new LinkedList();
+var listDM=new LinkedList();
 var listPlayers = new LinkedList();
+
+var suspects = new LinkedList();
+var votes = new LinkedList();
 
 var x;
 var y;
@@ -45,6 +49,7 @@ client.on('message', msg => {
   var content = msg.content //contains all the text Ex: !addrole Member
   var parts = content.split(" "); //splits everything up on spaces so you'll have an array of two strings
   
+
   if (msg.isMentioned(client.user)) {
     msg.channel.send('Welcome to a game of werewolf!\nCommands:\n`w!rules` `w!join` `w!play`');
   }
@@ -69,7 +74,7 @@ client.on('message', msg => {
 			noteDead(msg, parts[1]);
 			if(alreadyKill== true){
 				client.channels.get('341523915849465856').send('Sheriff, please DM me who you want investigate.');
-  				client.fetchUser(idSheriff).then(user => {user.send("The people alive are:\n"+ list.printDMList() +"\nTo investigate, use w!inv number")});
+  				client.fetchUser(idSheriff).then(user => {user.send("The people alive are:\n"+ listDM.printDMList() +"\nTo investigate, use w!inv number")});
 			}		
   		}else{
   			msg.channel.send('You\'ve already killed once.');
@@ -84,7 +89,7 @@ client.on('message', msg => {
   			investigate(msg, parts[1]);
   			if (alreadyInv==true){
   				client.channels.get('341523915849465856').send('Doctor, please DM me who you want to heal.');
-  				client.fetchUser(idDoctor).then(user => {user.send("The people alive are: \n"+ list.printDMList() +"\nTo heal, use w!heal number")});
+  				client.fetchUser(idDoctor).then(user => {user.send("The people alive are: \n"+ listDM.printDMList() +"\nTo heal, use w!heal number")});
   			}
   		}else{
   			msg.channel.send('You\'ve already investigated once.');
@@ -125,6 +130,9 @@ client.on('message', msg => {
   	}
 
   }
+  /*if(msg.content === config.prefix  + '!' + 'voteCount'){
+  		voteCount(msg);
+  }*/
 
 });
 
@@ -145,9 +153,10 @@ function join(msg){
 	else{
 		list.insert(msg.author.toString());
 		listPlayers.insert(msg.author.toString());
+		listDM.insert(msg.author.tag);
 	}
 	client.channels.get('341523915849465856').send('Players: ' + listPlayers.printList());
-
+	console.log(listPlayers.printList());
 }
 
 function checkEnoughPeople(msg){
@@ -225,7 +234,7 @@ async function wait5Secs(msg) {
     	clearInterval(counter);
     	client.channels.get('341523915849465856').send('And the werewolf is awake!\nWerewolf, please DM me who you want to kill.');
 		
-		client.fetchUser(idWerewolf).then(user => {user.send("The people alive are: \n" + list.printDMList() + "\nTo kill, use w!kill number, ie. w!kill 0")});	
+		client.fetchUser(idWerewolf).then(user => {user.send("The people alive are: \n" + listDM.printDMList() + "\nTo kill, use w!kill number, ie. w!kill 0")});	
  	}
 }
 function wait30Secs(msg) {
@@ -235,8 +244,19 @@ function wait30Secs(msg) {
     console.log(seconds);
     if(seconds<0){
     	clearInterval(counter);
-    	client.channels.get('341523915849465856').send('Time is up! \nDuring the day, the villagers killed _. \nNight falls...');
+    	var personWithMostVotes=findPersonWithMostVotes(msg);
+    	
+    	client.channels.get('341523915849465856').send('Time is up! \nDuring the day, the villagers killed '+ suspects.findAt(personWithMostVotes).getData()+'. \nNight falls...');
 		
+		if (personWithMostVotes==0){
+			list.removeFirst(personWithMostVotes);
+			listDM.removeFirst(personWithMostVotes);
+		}else{
+			list.removeAt(personWithMostVotes);
+			listDM.removeAt(personWithMostVotes);
+		}
+
+		//msg.channel.send(suspects.printList);
     }
 }
 function noteDead(msg, dead){
@@ -256,7 +276,7 @@ function investigate(msg, inv){
 		if(list.findAt(inv).getData()===werewolf){
 			msg.channel.send(list.findAt(inv).getData()+" is the werewolf!");
 		}else{
-			msg.channel.send(list.findAt(inv).getData()+" is not the werewolf. Better luck next time!");
+			msg.channel.send(listDM.findAt(inv).getData()+" is not the werewolf. Better luck next time!");
 		}
 		alreadyInv= true;
 		console.log("investigated " + list.findAt(inv).getData());
@@ -271,7 +291,14 @@ function heal(msg, heal){
 			deadPerson=-1;
 		}else{
 			client.channels.get('341523915849465856').send('It’s daytime, wakey wakey! '+ list.findAt(deadPerson).getData() +' has been found dead!');
-  			list.removeAt(deadPerson);	
+  			if (deadPerson==0){
+  				list.removeFirst();	
+  				listDM.removeFirst();
+  			}else{
+  				list.removeAt(deadPerson);	
+  				listDM.removeAt(deadPerson);
+  			}
+  		
 		}
 
 		alreadyHeal=true;
@@ -282,12 +309,50 @@ function heal(msg, heal){
 }
 function vote(msg, vote){
 	if (list.contains(vote)){
-		
-		msg.reply('You have voted for '+vote); 
+		if(suspects.contains(vote)){
+			console.log("enter suspect +2");
+			var index= suspects.indexOf(vote);
+			var num = votes.findAt(index).getData();
+			votes.findAt(index).editData(num+1);
+			msg.channel.send(vote+" +" +votes.findAt(index).getData());
+		}else{ //first vote
+			suspects.insert(vote);
+			votes.insert(1);
+			msg.channel.send(vote+" +1");
+		}
 
 	}else{
 		msg.channel.send('You probably tried to vote for a dead person or someone outside the game.\nTry w!vote @username again.');
 	}
 }
+function findPersonWithMostVotes(msg){
+	var maxIndex=0;
+	var max= votes.findAt(0).getData();
+
+
+	if (suspects.getSize()==1){
+		return 0;
+
+	}else{
+
+    	for (var i = 1; i < suspects.getSize(); i++) {
+       		if (votes.findAt(i).getData() > max) {
+            	maxIndex = i;
+            	max = votes.findAt(i).getData();
+        	}
+    	}
+	}
+
+	return maxIndex;
+}
+/*function voteCount(msg){
+	var message='';
+	for (index=0; index<=suspects.getSize(); index++){
+		var suspect = suspects.findAt(index).getData();
+		var num = votes.findAt(index).getData();
+		message= message.concat( suspect +" +"+ num +"\n" );
+	}
+	msg.channel.send(message);
+}*/
 
 client.login(config.token);
