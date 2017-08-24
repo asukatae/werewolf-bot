@@ -3,9 +3,10 @@ const client = new Discord.Client();
 const config = require("./config.json");
 const fs = require("fs");
 var LinkedList = require('singly-linked-list');
-var list = new LinkedList();
-var listDM=new LinkedList();
-var listPlayers = new LinkedList();
+var list = new LinkedList(); //people who are alive in the game
+var listDM=new LinkedList(); //people who are alive and get DMed in the game
+var listPlayers = new LinkedList(); //total list of players
+var listIfVoted = new LinkedList(); //total list of players who already voted
 
 var suspects = new LinkedList();
 var votes = new LinkedList();
@@ -73,8 +74,17 @@ client.on('message', msg => {
   		if(alreadyKill==false){
 			noteDead(msg, parts[1]);
 			if(alreadyKill== true){
-				client.channels.get('341523915849465856').send('Sheriff, please DM me who you want investigate.');
-  				client.fetchUser(idSheriff).then(user => {user.send("The people alive are:\n"+ listDM.printDMList() +"\nTo investigate, use w!inv number")});
+				if (list.getSize()==1){
+					client.channels.get('340390174238310412').send('The werewolf has won the game!');
+					client.channels.get('340390174238310412').send("Werewolf: "+ werewolf +" Sheriff: "+sheriff+ " Doctor: " +doctor );
+    				//end game
+    				clear();
+    				client.channels.get('340390174238310412').send("Press w!join and w!play to play the game again.");
+				}else{
+					client.channels.get('340390174238310412').send('Sheriff, please DM me who you want investigate.');
+  					client.fetchUser(idSheriff).then(user => {user.send("The people alive are:\n"+ listDM.printDMList() +"\nTo investigate, use w!inv number, ie. w!inv 0")});
+				}
+				
 			}		
   		}else{
   			msg.channel.send('You\'ve already killed once.');
@@ -88,8 +98,8 @@ client.on('message', msg => {
   		if(alreadyInv==false){
   			investigate(msg, parts[1]);
   			if (alreadyInv==true){
-  				client.channels.get('341523915849465856').send('Doctor, please DM me who you want to heal.');
-  				client.fetchUser(idDoctor).then(user => {user.send("The people alive are: \n"+ listDM.printDMList() +"\nTo heal, use w!heal number")});
+  				client.channels.get('340390174238310412').send('Doctor, please DM me who you want to heal.');
+  				client.fetchUser(idDoctor).then(user => {user.send("The people alive are: \n"+ listDM.printDMList() +"\nTo heal, use w!heal number, ie. w!heal 0")});
   			}
   		}else{
   			msg.channel.send('You\'ve already investigated once.');
@@ -106,7 +116,7 @@ client.on('message', msg => {
 
   			if(alreadyHeal==true){
 
-  				client.channels.get('341523915849465856').send('Alive:\n'+ list.printList() +'\nWho is the werewolf? Please vote with w!vote @username');
+  				client.channels.get('340390174238310412').send('Alive:\n'+ list.printList() +'\nWho is the werewolf? Please vote with w!vote @username');
   			
 				while (!gameCont){
 					sTime = new Date().getTime();
@@ -155,8 +165,8 @@ function join(msg){
 		listPlayers.insert(msg.author.toString());
 		listDM.insert(msg.author.tag);
 	}
-	client.channels.get('341523915849465856').send('Players: ' + listPlayers.printList());
-	console.log(listPlayers.printList());
+	client.channels.get('340390174238310412').send('Players: ' + listPlayers.printList());
+	
 }
 
 function checkEnoughPeople(msg){
@@ -208,7 +218,7 @@ function assignRoles(){
 function play(msg){
 	if (alreadyPressPlay==false){
 		alreadyPressPlay=true;
-		client.channels.get('341523915849465856').send('Night falls, everyone please go to sleep.');
+		client.channels.get('340390174238310412').send('Night falls, everyone please go to sleep.');
 
 		assignRoles();
 		
@@ -221,7 +231,7 @@ function play(msg){
 		}
 
 	}else{
-		client.channels.get('341523915849465856').send('Game already started');
+		client.channels.get('340390174238310412').send('Game already started');
 	}
 }	
 
@@ -232,7 +242,7 @@ async function wait5Secs(msg) {
     console.log(seconds);
     if(seconds<0){
     	clearInterval(counter);
-    	client.channels.get('341523915849465856').send('And the werewolf is awake!\nWerewolf, please DM me who you want to kill.');
+    	client.channels.get('340390174238310412').send('And the werewolf is awake!\nWerewolf, please DM me who you want to kill.');
 		
 		client.fetchUser(idWerewolf).then(user => {user.send("The people alive are: \n" + listDM.printDMList() + "\nTo kill, use w!kill number, ie. w!kill 0")});	
  	}
@@ -246,27 +256,60 @@ function wait30Secs(msg) {
     	clearInterval(counter);
     	var personWithMostVotes=findPersonWithMostVotes(msg);
     	
-    	client.channels.get('341523915849465856').send('Time is up! \nDuring the day, the villagers killed '+ suspects.findAt(personWithMostVotes).getData()+'. \nNight falls...');
-		
-		if (personWithMostVotes==0){
-			list.removeFirst(personWithMostVotes);
-			listDM.removeFirst(personWithMostVotes);
-		}else{
-			list.removeAt(personWithMostVotes);
-			listDM.removeAt(personWithMostVotes);
-		}
+    	client.channels.get('340390174238310412').send('Time is up! \nDuring the day, the villagers killed '+ suspects.findAt(personWithMostVotes).getData()+'. \nNight falls...');
+			var index = list.indexOf(suspects.findAt(personWithMostVotes).getData());
+    		
+    		if (index==0){
+    			list.removeFirst();
+				listDM.removeFirst();
+			}else{
+				list.removeAt(index);
+				listDM.removeAt(index);
+			}
+		console.log(list.getSize());
+    	if (suspects.findAt(personWithMostVotes).getData()===werewolf){
+    		client.channels.get('340390174238310412').send("And no one is dead that night. The villagers win!");
+    		client.channels.get('340390174238310412').send("Werewolf: "+ werewolf +" Sheriff: "+sheriff+ " Doctor: " +doctor );
+    		//end game
+    		clear();
+    		client.channels.get('340390174238310412').send("Press w!join and w!play to play the game again.");
+    	}else if(list.getSize()==1){
+    		client.channels.get('340390174238310412').send('The werewolf is the last player alive! The werewolf has won the game!');
+			client.channels.get('340390174238310412').send("Werewolf: "+ werewolf +" Sheriff: "+sheriff+ " Doctor: " +doctor );
+    		//end game
+    		clear();
+    		client.channels.get('340390174238310412').send("Press w!join and w!play to play the game again.");
+    	}
+    	else{
+			client.channels.get('340390174238310412').send("... and the werewolf is awake!\nWerewolf, please DM me who you want to kill.");
+			client.fetchUser(idWerewolf).then(user => {user.send("The people alive are: \n" + listDM.printDMList() + "\nTo kill, use w!kill number, ie. w!kill 0")});
+			continueGame();
+    	}
 
-		//msg.channel.send(suspects.printList);
+
+	
     }
 }
 function noteDead(msg, dead){
 	if(list.findAt(dead).getData()===werewolf){
-		msg.channel.send('Suicide is bad for you. Please w!kill number again.');
+		msg.channel.send('Suicide is a bad option. Please w!kill number again.');
 	}
-	else if (dead<list.getSize()){
+	else if(list.getSize()==2){
 		deadPerson= dead;
 		alreadyKill=true;
-		console.log("killed " + list.findAt(deadPerson).getData());
+		msg.channel.send("You have killed " + listDM.findAt(deadPerson).getData());
+		
+		if (dead==0){
+			list.removeFirst();
+			listDM.removeFirst();
+		}else{
+			list.removeAt(dead);
+			listDM.removeAt(dead);
+		}
+	}else if (dead<list.getSize()){
+		deadPerson= dead;
+		alreadyKill=true;
+		msg.channel.send("You have killed " + listDM.findAt(deadPerson).getData());
 	}else{
 		msg.channel.send("Unvalid number! Please w!kill number again.");
 	}
@@ -274,12 +317,12 @@ function noteDead(msg, dead){
 function investigate(msg, inv){
 	if (inv<list.getSize()){
 		if(list.findAt(inv).getData()===werewolf){
-			msg.channel.send(list.findAt(inv).getData()+" is the werewolf!");
+			msg.channel.send(listDM.findAt(inv).getData()+" is the werewolf!");
 		}else{
 			msg.channel.send(listDM.findAt(inv).getData()+" is not the werewolf. Better luck next time!");
 		}
 		alreadyInv= true;
-		console.log("investigated " + list.findAt(inv).getData());
+		
 	}else{
 		msg.channel.send("Unvalid number! Please w!kill number again.");
 	}
@@ -287,10 +330,12 @@ function investigate(msg, inv){
 function heal(msg, heal){
 	if (heal<list.getSize()){
 		if(deadPerson==heal){
-			client.channels.get('341523915849465856').send('No one was found dead that night! Good job, Doc!');	
+			msg.channel.send(listDM.findAt(heal).getData()+" is healed!");
+			client.channels.get('340390174238310412').send('No one was found dead that night! Good job, Doc!');	
 			deadPerson=-1;
 		}else{
-			client.channels.get('341523915849465856').send('It’s daytime, wakey wakey! '+ list.findAt(deadPerson).getData() +' has been found dead!');
+			msg.channel.send(listDM.findAt(heal).getData()+" is healed!");
+			client.channels.get('340390174238310412').send('It’s daytime, wakey wakey! '+ list.findAt(deadPerson).getData() +' has been found dead!');
   			if (deadPerson==0){
   				list.removeFirst();	
   				listDM.removeFirst();
@@ -308,21 +353,25 @@ function heal(msg, heal){
 	}
 }
 function vote(msg, vote){
-	if (list.contains(vote)){
-		if(suspects.contains(vote)){
-			console.log("enter suspect +2");
-			var index= suspects.indexOf(vote);
-			var num = votes.findAt(index).getData();
-			votes.findAt(index).editData(num+1);
-			msg.channel.send(vote+" +" +votes.findAt(index).getData());
-		}else{ //first vote
-			suspects.insert(vote);
-			votes.insert(1);
-			msg.channel.send(vote+" +1");
+	if(!listIfVoted.contains(msg.author.toString())){
+		if (list.contains(vote)){ //if suspect is alive
+			if(suspects.contains(vote)){ //if suspect has been suspected before
+				var index= suspects.indexOf(vote);
+				var num = votes.findAt(index).getData();
+				votes.findAt(index).editData(num+1);
+				msg.channel.send(vote+" +" +votes.findAt(index).getData());
+				listIfVoted.insert(msg.author.toString());
+			}else{ //if suspect is casted first vote
+				suspects.insert(vote);
+				votes.insert(1);
+				msg.channel.send(vote+" +1");
+					listIfVoted.insert(msg.author.toString());
+			}
+		}else{
+			msg.channel.send('You probably tried to vote for a dead person or someone outside the game.\nTry w!vote @username again.');
 		}
-
 	}else{
-		msg.channel.send('You probably tried to vote for a dead person or someone outside the game.\nTry w!vote @username again.');
+		msg.reply('You already voted once.');
 	}
 }
 function findPersonWithMostVotes(msg){
@@ -345,14 +394,59 @@ function findPersonWithMostVotes(msg){
 
 	return maxIndex;
 }
-/*function voteCount(msg){
-	var message='';
-	for (index=0; index<=suspects.getSize(); index++){
-		var suspect = suspects.findAt(index).getData();
-		var num = votes.findAt(index).getData();
-		message= message.concat( suspect +" +"+ num +"\n" );
-	}
-	msg.channel.send(message);
-}*/
+function clear(){
+
+	list.clear(); //people who are alive in the game
+	listDM.clear(); //people who are alive and get DMed in the game
+	listPlayers.clear(); //total list of players
+	listIfVoted.clear(); //total list of players who already voted
+
+	suspects.clear();
+	votes.clear();
+
+	x=-1;
+	y=-1;
+	z=-1;
+
+	werewolf="";
+	sheriff="";
+	doctor="";
+
+	idWerewolf="";
+	idSheriff="";
+	idDoctor="";
+
+	alreadyPressPlay=false;
+	sTime=0;
+	counter=0;
+
+
+	gameStart=false;
+
+	gameCont= false;
+
+	alreadyKill=false;
+	alreadyInv=false;
+	alreadyHeal=false;
+
+	deadPerson=-1;
+}
+function continueGame(){
+	listIfVoted.clear(); //total list of players who already voted
+	suspects.clear();
+	votes.clear();
+
+	sTime=0;
+	counter=0;
+
+	gameCont= false;
+
+	alreadyKill=false;
+	alreadyInv=false;
+ 	alreadyHeal=false;
+
+	deadPerson=-1;
+
+}
 
 client.login(config.token);
