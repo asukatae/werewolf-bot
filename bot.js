@@ -52,13 +52,17 @@ client.on('message', msg => {
   
 
   if (msg.isMentioned(client.user)) {
-    msg.channel.send('Welcome to a game of werewolf!\nCommands:\n`w!rules` `w!join` `w!play`');
+    msg.channel.send('Welcome to a game of werewolf!\nCommands:\n`w!rules` `w!join` `w!play` `w!quit`');
   }
   if (msg.content === config.prefix  + '!' + 'rules') {
 	explainRules(msg);
   }
   if (msg.content === config.prefix  + '!' + 'join') {
 	join(msg);
+  }
+  if (msg.content === config.prefix  + '!' + 'quit') {
+	clear();
+	msg.channel.send('Game restart.');
   }
   if (msg.content === config.prefix  + '!' + 'play') {
 	if(checkEnoughPeople(msg)){
