@@ -52,7 +52,7 @@ client.on('message', msg => {
   
 
   if (msg.isMentioned(client.user)) {
-    msg.channel.send('Welcome to a game of werewolf!\nCommands:\n`w!rules` `w!join` `w!play` `w!quit`');
+    msg.channel.send('Welcome to a game of werewolf!\nCommands:\n`w!rules` `w!join` `w!play` `w!quit` `w!about`');
   }
   if (msg.content === config.prefix  + '!' + 'rules') {
 	explainRules(msg);
@@ -71,6 +71,9 @@ client.on('message', msg => {
 	else{
 		msg.channel.send('We don\'t have enough people to play the game.');
 	}
+  }
+  if (msg.content === config.prefix  + '!' + 'about') {
+	msg.channel.send('This is a bot created by Asuka Tae (飛鳥 妙) in August 2017! Thank you for playing!');
   }
 
   if(parts[0] === config.prefix  + '!' + 'kill'){
@@ -401,6 +404,7 @@ function heal(msg, heal){
 }
 function vote(msg, vote){
 	if(!listIfVoted.contains(msg.author.toString())){
+		console.log(list.printList);
 		if (list.contains(vote)){ //if suspect is alive
 			if(suspects.contains(vote)){ //if suspect has been suspected before
 				var index= suspects.indexOf(vote);
