@@ -305,18 +305,30 @@ function wait30Secs(msg) {
     	clearInterval(counter);
     	var personWithMostVotes=findPersonWithMostVotes(msg);
     	
-    	client.channels.get('340390174238310412').send('Time is up! \nDuring the day, the villagers killed '+ suspects.findAt(personWithMostVotes).getData()+'. \nNight falls...');
-		var index = list.indexOf(suspects.findAt(personWithMostVotes).getData());
-    	if (index==0){
+        
+        if(personWithMostVotes==-1){
+          client.channels.get('340390174238310412').send('No one voted, so everyone is safe.');
+      }else{
+          
+          client.channels.get('340390174238310412').send('Time is up! \nDuring the day, the villagers killed '+ suspects.findAt(personWithMostVotes).getData()+'. \nNight falls...');
+		  var index = list.indexOf(suspects.findAt(personWithMostVotes).getData());
+          if (index==0){
    			list.removeFirst();
 			listDM.removeFirst();
-		}else{
+		  }else{
 			list.removeAt(index);
 			listDM.removeAt(index);
-		}
-
-		
-    	if (suspects.findAt(personWithMostVotes).getData()===werewolf){
+		  }
+      
+      }
+        
+    	
+		if (personWithMostVotes==-1){
+            client.channels.get('340390174238310412').send("... and the werewolf is awake!\nWerewolf, please DM me who you want to kill.");
+			client.fetchUser(idWerewolf).then(user => {user.send("The people alive are: \n" + listDM.printDMList() + "\nTo kill, use w!kill number, ie. w!kill 0")});
+			continueGame();
+        }
+    	else if (suspects.findAt(personWithMostVotes).getData()===werewolf){
     		client.channels.get('340390174238310412').send("And no one is dead that night. The villagers win!");
     		client.channels.get('340390174238310412').send("Werewolf: "+ werewolf +" Sheriff: "+sheriff+ " Doctor: " +doctor );
     		//end game
@@ -426,25 +438,34 @@ function vote(msg, vote){
 	}
 }
 function findPersonWithMostVotes(msg){
-	var maxIndex=0;
-	var max= votes.findAt(0).getData();
+  
+ if(suspects.getSize()==0){
+     return -1;
+     
+ }else{
+       
+  var maxIndex=0;
+  var max= votes.findAt(0).getData();
 
 
-	if (suspects.getSize()==1){
-		return 0;
+  if (suspects.getSize()==1){
+    return 0;
 
-	}else{
+  }else{
 
-    	for (var i = 1; i < suspects.getSize(); i++) {
-       		if (votes.findAt(i).getData() > max) {
-            	maxIndex = i;
-            	max = votes.findAt(i).getData();
-        	}
-    	}
-	}
+      for (var i = 1; i < suspects.getSize(); i++) {
+          if (votes.findAt(i).getData() > max) {
+              maxIndex = i;
+              max = votes.findAt(i).getData();
+          }
+      }
+  }
 
-	return maxIndex;
+  return maxIndex;
+     
+ }
 }
+
 function clear(){
 
 	list.clear(); //people who are alive in the game
